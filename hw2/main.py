@@ -1,69 +1,65 @@
-import ast
+import os
 
-import networkx as nx
+from ast_visualizer_demo import main as ast_builder
 
-nodes_to_vertices = {
-    ast.FunctionDef: (lambda x: f"Function: {x.name}", "#cfb53b"),
-    ast.arg: (lambda x: f"Argument: {x.arg}", "#f78fa7"),
-    ast.Name: (lambda x: f"Name: {x.id}", "#addfad"),
-    ast.Constant: (lambda x: f"Constant: {x.value}", "#b44c43"),
-    ast.Sub: (lambda _: "-", "#ddbec3"),
-    ast.Module: (None, "#543964"),
-    ast.arguments: (None, "#6c6960"),
-    ast.If: (None, "#826c34"),
-    ast.Return: (None, "#fddb6d"),
-    ast.Compare: (None, "#00ff00"),
-    ast.BinOp: (None, "#ff5349"),
-    ast.Call: (None, "#8f509d"),
-    ast.Add: (None, "#1fcecb"),
-    ast.ListComp: (None, "#a6caf0"),
-    ast.comprehension: (None, "#ff00ff"),
-    ast.Store: (None, "#7fffd4"),
-    ast.LtE: (None, "#a5694f"),
-    ast.Load: (lambda _: None, None)
-}
+sample_table = [
+    [1, "alksjdfbanlm", 4, "293999"],
+    [1, 2, 3, 4],
+    [None, "pepepep", "0", 123]
+]
 
 
-def get_color_and_label(node):
-    clz = node.__class__
-    default = None, "#ffffff"
-    node_to_label, color = nodes_to_vertices.get(clz, default)
-
-    if node_to_label is not None:
-        label = node_to_label(node)
-    else:
-        label = clz.__name__
-    return label, color
+def latex_header():
+    return (
+        "\\documentclass{article}\n"
+        "\\usepackage{graphicx}\n"
+        "\\usepackage[utf8]{inputenc}\n"
+        "\\begin{document}\n"
+    )
 
 
-class Graph:
-    def __init__(self, graph=nx.DiGraph()):
-        self.graph = graph
+def latex_footer():
+    return "\\end{document}\n"
 
-    def visit(self, node):
-        label, color = get_color_and_label(node)
-        if label is None:
-            return False
-        self.graph.add_node(node, label=label, color=color, shape="rect", style="filled")
-        for field, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                for item in value:
-                    if isinstance(item, ast.AST):
-                        if self.visit(item):
-                            self.graph.add_edge(node, item)
-            elif isinstance(value, ast.AST):
-                if self.visit(value):
-                    self.graph.add_edge(node, value)
-        return True
+
+def table_to_latex(table):
+    return table_header(table) + table_body(table) + table_footer()
+
+
+def gen_columns(n):
+    return "|" + " c |" * n
+
+
+def gen_table_row(row):
+    return " & ".join(map(str, row)) + "\\\\"
+
+
+def table_header(table):
+    return f"\\begin{{tabular}}{{{gen_columns(len(table[0]))}}}\n"
+
+
+def table_body(table):
+    return "\\hline\n" + "\n\\hline\n".join(map(gen_table_row, table)) + "\n\\hline\n"
+
+
+def table_footer():
+    return "\\end{tabular}\\\\\n"
+
+
+def image_to_latex(path, scale=0.25):
+    return f"\\includegraphics[scale={scale}]{{{path}}}\n"
+
+
+def gen_latex(table, image_path):
+    return latex_header() + table_to_latex(table) + image_to_latex(image_path) + latex_footer()
 
 
 def main():
-    with open("fib.py") as file:
-        code = file.read()
-    tree = ast.parse(code)
-    g = Graph()
-    g.visit(tree)
-    nx.drawing.nx_pydot.to_pydot(g.graph).write_png("artifacts/fib.png")
+    if not os.path.exists("artifacts"):
+        os.mkdir("artifacts")
+    with open("artifacts/sample.tex", "w") as f:
+        ast_builder()
+        f.write(gen_latex(sample_table, "fib.png"))
 
 
 if __name__ == "__main__":

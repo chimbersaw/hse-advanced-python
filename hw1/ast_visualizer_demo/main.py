@@ -1,6 +1,10 @@
 import ast
+import inspect
+import os
 
 import networkx as nx
+
+from .fib import fib_list
 
 nodes_to_vertices = {
     ast.FunctionDef: (lambda x: f"Function: {x.name}", "#cfb53b"),
@@ -58,8 +62,9 @@ class Graph:
 
 
 def main():
-    with open("fib.py") as file:
-        code = file.read()
+    if not os.path.exists("artifacts"):
+        os.mkdir("artifacts")
+    code = inspect.getsource(fib_list)
     tree = ast.parse(code)
     g = Graph()
     g.visit(tree)
