@@ -49,22 +49,27 @@ class Matrix:
         res = Matrix([[0] * m for _ in range(n)])
         for i in range(n):
             for j in range(k):
-                for k in range(m):
-                    res._data[i][j] += self._data[i][k] * other._data[k][j]
+                for l in range(m):
+                    res._data[i][j] += self._data[i][l] * other._data[l][j]
         return res
+
+    def __str__(self):
+        return "[" + ",\n".join(map(lambda row: "[" + ", ".join([str(e) for e in row]) + "]", self._data)) + "]\n"
 
 
 def save_to_file(matrix, path):
-    pass
+    with open(path, "w") as file:
+        file.write(str(matrix))
 
 
 def main():
     np.random.seed(0)
     a = Matrix(np.random.randint(0, 10, (10, 10)))
     b = Matrix(np.random.randint(0, 10, (10, 10)))
-    save_to_file(a + b, "artifacts/easy/matrix+.txt")
-    save_to_file(a * b, "artifacts/easy/matrix+.txt")
-    save_to_file(a @ b, "artifacts/easy/matrix+.txt")
+    prefix = "artifacts/easy/matrix"
+    save_to_file(a + b, f"{prefix}+.txt")
+    save_to_file(a * b, f"{prefix}*.txt")
+    save_to_file(a @ b, f"{prefix}@.txt")
 
 
 if __name__ == "__main__":
