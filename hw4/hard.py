@@ -1,52 +1,70 @@
-from easy import Matrix, save_to_file
+import codecs
+import multiprocessing as mp
+import os
+import sys
+import time
+from datetime import datetime
+from threading import Thread
+
+run = True
 
 
-class HashMixin:
-    def __hash__(self):
-        """Alternating sign sum of matrix elements"""
-        res, sgn = 0, 1
-        for row in self._data:
-            for elem in row:
-                res += elem * sgn
-                sgn *= -1
-        return res
+def process_a(queue, out_conn):
+    while True:
+        s = queue.get()
+        out_conn.send(s.lower())
+        time.sleep(5)
 
 
-class HashableMatrix(Matrix, HashMixin):
-    _matmul_cache = {}
+def process_b(in_conn, out_conn):
+    while True:
+        out_conn.send(codecs.encode(in_conn.recv(), "rot13"))
 
-    @classmethod
-    def invalidate_caches(cls):
-        cls._matmul_cache = {}
 
-    def __matmul__(self, other):
-        key = hash(self), hash(other)
-        if key not in HashableMatrix._matmul_cache:
-            HashableMatrix._matmul_cache[key] = HashableMatrix(super().__matmul__(other)._data)
-        return HashableMatrix._matmul_cache[key]
+def receiver_thread(in_conn):
+    global run
+    while run:
+        if in_conn.poll(1):
+            msg = in_conn.recv()
+            print(f"Received: {msg} at {datetime.now().strftime('%H:%M:%S')}")
+
+
+def sender_thread(queue):
+    global run
+    while True:
+        msg = input().strip()
+        if not msg:
+            continue
+        if msg == "q" or msg == "quit" or msg == "exit":
+            break
+        print(f"Sent: {msg} at {datetime.now().strftime('%H:%M:%S')}")
+        queue.put(msg)
+    run = False
 
 
 def main():
-    a = HashableMatrix([[1, 1], [1, 1]])
-    b = HashableMatrix([[1, 2], [3, 4]])
-    c = HashableMatrix([[2, 2], [2, 2]])
-    d = HashableMatrix([[1, 2], [3, 4]])
+    if not os.path.exists("artifacts"):
+        os.mkdir("artifacts")
+    sys.stdout = open("artifacts/hard.txt", 'w')
+    queue = mp.Queue()
+    a_to_b, b_from_a = mp.Pipe()
+    b_to_main, main_from_b = mp.Pipe()
+    a = mp.Process(target=process_a, args=(queue, a_to_b), daemon=True)
+    b = mp.Process(target=process_b, args=(b_from_a, b_to_main), daemon=True)
+    receiver = Thread(target=receiver_thread, args=(main_from_b,))
+    sender = Thread(target=sender_thread, args=(queue,))
 
-    assert hash(a) == hash(c)
+    a.start()
+    b.start()
+    receiver.start()
+    sender.start()
 
-    ab = a @ b
-    HashableMatrix.invalidate_caches()  # otherwise, we use cached version
-    cd = c @ d
-
-    prefix = "artifacts/hard"
-    save_to_file(a, f"{prefix}/A.txt")
-    save_to_file(b, f"{prefix}/B.txt")
-    save_to_file(c, f"{prefix}/C.txt")
-    save_to_file(d, f"{prefix}/D.txt")
-    save_to_file(ab, f"{prefix}/AB.txt")
-    save_to_file(cd, f"{prefix}/CD.txt")
-    with open(f"{prefix}/hash.txt", "w") as file:
-        file.write(str(hash(ab)) + "\n" + str(hash(cd)) + "\n")
+    sender.join()
+    receiver.join()
+    queue.close()
+    a_to_b.close()
+    b_to_main.close()
+    sys.stdout.close()
 
 
 if __name__ == "__main__":
